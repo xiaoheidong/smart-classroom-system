@@ -1,0 +1,40 @@
+# 排除文档目录
+docs/
+
+# 排除数据集
+data/
+data2/
+
+# 排除Python缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 排除虚拟环境
+venv/
+env/
+ENV/
+
+# 排除IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 排除模型文件（可选，如果太大）
+*.pt
+*.pth
+*.onnx
+
+# 排除日志和临时文件
+*.log
+.DS_Store
+Thumbs.db
+
+# 排除本地数据库和抓拍图片
+*.db
+*.sqlite
+*.sqlite3
+captures/
