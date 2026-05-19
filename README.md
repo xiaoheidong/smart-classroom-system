@@ -2,145 +2,136 @@
 
 ## 项目概述
 
-本项目是一个基于深度学习的实时智能教室监控系统，专为毕业设计开发。系统实现了以下核心功能：
+本项目是一个基于深度学习的智能教室监控系统，专为本科毕业设计开发。系统实现了课堂行为实时检测、人脸识别考勤、智能问答等功能，采用本地部署方式保护学生隐私。
 
-- **作弊检测**: 检测传纸条、低头偷看、东张西望等作弊行为
-- **动态点名**: 基于人脸识别的实时考勤系统
-- **人脸注册**: 静默活体检测 + 人脸采集
+## 核心功能
 
-## 硬件适配
+- **作弊检测**: 实时检测睡觉、玩手机、趴桌子等异常行为，自动抓拍存证
+- **动态点名**: 基于人脸识别的无感考勤，支持飞书Webhook推送
+- **人脸注册**: 静默活体检测 + 人脸特征采集
+- **智能问答**: 基于DeepSeek API的自然语言交互
 
-针对 **RTX 3050 Laptop 4GB显存** 进行了优化：
+## 技术栈
+
+| 模块 | 技术 |
+|------|------|
+| 人体检测 | YOLOv11n (Ultralytics) |
+| 行为分类 | ResNet18 (PyTorch) |
+| 人脸识别 | dlib / FaceNet 双后端 |
+| 活体检测 | MiniFASNet |
+| GUI界面 | PyQt5 |
+| 数据库 | SQLite |
+| 大模型 | DeepSeek API |
+
+## 硬件要求
+
+针对 **RTX 3050 Laptop 4GB显存** 优化：
 
 | 硬件 | 规格 | 说明 |
 |------|------|------|
-| CPU | i5-11260H | 数据预处理 |
-| GPU | RTX 3050 4GB | 模型推理（轻量化模型） |
-| 内存 | 16GB+ | 数据加载和缓冲 |
-
-### 优化策略
-
-- 使用YOLOv8n（3.2M参数）替代标准版本
-- 使用YOLOv8n-Pose（11MB）进行姿态估计
-- 训练batch_size设为4-8
-- 每2帧处理一次，降低计算量
+| CPU | Intel i7-12700H | 数据预处理 |
+| GPU | RTX 3050 4GB | 模型推理 |
+| 内存 | 16GB DDR5 | 数据加载和缓冲 |
 
 ## 项目结构
 
 ```
-smart_classroom2/
+smart-classroom-system/
 ├── main.py                     # 主程序入口
 ├── requirements.txt            # Python依赖
 ├── README.md                   # 项目说明
+├── .gitignore                  # Git忽略配置
 ├── models/                     # 模型文件
-│   ├── pretrained/             # 预训练模型
-│   │   ├── yolov8n.pt         # YOLOv8 nano
-│   │   ├── yolov8n-pose.pt    # YOLOv8 pose
-│   │   ├── dlib_face_recognition_resnet_model_v1.dat
-│   │   ├── shape_predictor_68_face_landmarks.dat
-│   │   └── 2.7_80x80_MiniFASNetV2.pth
-│   └── trained/                # 训练后的模型
-│       └── action_classifier.pth
-├── data/                       # 数据目录
-│   ├── videos/                 # 视频文件
-│   └── images/                 # 图像文件
-├── db/                         # 数据库
-│   └── smart_classroom.db
+│   ├── yolo11n.pt             # YOLOv11n预训练模型
+│   └── trained/               # 训练后的模型
+│       └── run_data_8cls_e20_bs8/
+│           └── action_classifier.pth
 ├── src/                        # 源代码
 │   ├── config.py              # 配置文件
 │   ├── core/                  # 核心算法
-│   │   ├── person_detector.py      # 人体检测
-│   │   ├── pose_estimator.py       # 姿态估计
-│   │   ├── action_classifier.py    # 行为分类
-│   │   ├── cheating_detector.py    # 作弊检测
+│   │   ├── person_detector.py      # 人体检测 (YOLOv11)
+│   │   ├── action_classifier.py    # 行为分类 (ResNet18)
+│   │   ├── cheating_detector.py    # 作弊检测逻辑
 │   │   ├── face_recognition.py     # 人脸识别
 │   │   └── liveness_detector.py   # 活体检测
 │   ├── gui/                   # GUI界面
 │   │   ├── main_window.py          # 主窗口
 │   │   ├── cheating_detection_tab.py # 作弊检测页
 │   │   ├── attendance_tab.py       # 考勤页
-│   │   └── face_registration_tab.py # 人脸注册页
+│   │   ├── face_registration_tab.py # 人脸注册页
+│   │   └── llm_assistant_tab.py    # 智能问答页
 │   └── utils/                 # 工具模块
-│       ├── video_capture.py   # 视频捕获
-│       ├── visualization.py   # 可视化
-│       └── database.py        # 数据库
+│       ├── database.py        # 数据库操作
+│       ├── feishu_webhook.py  # 飞书推送
+│       ├── deepseek_client.py # DeepSeek API客户端
+│       └── visualization.py   # 可视化
 ├── training/                   # 训练脚本
 │   └── train_action_classifier.py  # 行为分类训练
 └── scripts/                    # 工具脚本
-    └── export_models.py       # 模型导出
+    ├── check_pytorch_cuda.py  # 环境检查
+    ├── download_models.py     # 模型下载
+    └── init_database.py       # 数据库初始化
 ```
 
 ## 安装步骤
 
-### 1. 环境准备
+### 1. 克隆仓库
 
 ```bash
-# 安装Python 3.8+
-python --version
+git clone https://github.com/xiaoheidong/smart-classroom-system.git
+cd smart-classroom-system
+```
 
-# 创建虚拟环境（推荐）
-python -m venv venv
+### 2. 创建虚拟环境
 
+```bash
 # Windows
+python -m venv venv
 venv\Scripts\activate
 
 # Linux/Mac
+python -m venv venv
 source venv/bin/activate
 ```
 
-### 2. 安装依赖
+### 3. 安装依赖
 
 ```bash
-# 基础依赖
 pip install -r requirements.txt
-
-# 如果需要特定版本的PyTorch（CUDA 11.8）
-pip install torch==2.0.1+cu118 torchvision==0.15.1+cu118 --index-url https://download.pytorch.org/whl/cu118
 ```
 
-### 3. 下载预训练模型
+### 4. 下载模型
 
 ```bash
-# 创建模型目录
-mkdir -p models/pretrained
+# 自动下载YOLOv11n
+python download_yolo11n.py
 
-# 下载YOLOv8n（会自动下载，也可手动下载）
-# wget https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8n.pt -P models/pretrained/
-
-# 下载dlib模型
-# wget http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2
-# bunzip2 dlib_face_recognition_resnet_model_v1.dat.bz2
-# mv dlib_face_recognition_resnet_model_v1.dat models/pretrained/
-
-# wget http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
-# bunzip2 shape_predictor_68_face_landmarks.dat.bz2
-# mv shape_predictor_68_face_landmarks.dat models/pretrained/
-
-# 下载MiniFASNet（静默活体检测）
-# 从 https://github.com/minivision-ai/Silent-Face-Anti-Spoofing 下载
-# mv 2.7_80x80_MiniFASNetV2.pth models/pretrained/
+# 或手动下载其他模型到 models/ 目录
 ```
 
-### 4. 训练行为分类模型
+### 5. 初始化数据库
 
 ```bash
-# 使用示例数据训练（自动生成）
-python training/train_action_classifier.py
-
-# 或使用自己的数据
-python training/train_action_classifier.py --data_dir ./data/training --epochs 100
+python scripts/init_database.py
 ```
 
-### 5. 导出模型（可选）
+### 6. 配置API（可选）
 
-```bash
-python scripts/export_models.py
+编辑 `src/config.py`：
+
+```python
+# 飞书Webhook（用于考勤推送）
+FEISHU_WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx"
+FEISHU_WEBHOOK_SECRET = "your_secret"
+
+# DeepSeek API（用于智能问答）
+DEEPSEEK_API_KEY = "your_api_key"
+DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 ```
 
 ## 运行系统
 
 ```bash
-# 启动主程序
 python main.py
 ```
 
@@ -150,6 +141,8 @@ python main.py
 
 - 点击"开始检测"启动
 - 系统自动检测教室中的学生行为
+- 对睡觉、玩手机等异常行为进行红色标注
+- 持续异常30秒或连续25帧触发抓拍存证
 - 右侧显示实时统计数据和警报记录
 
 #### 2. 动态点名
@@ -157,136 +150,123 @@ python main.py
 - 点击"开始点名"启动
 - 系统自动识别已注册的学生人脸
 - 右侧显示已签到和未到名单
+- 结束考勤后自动推送汇总到飞书
 
 #### 3. 人脸注册
 
 - 开启预览后，填写学号和姓名
-- 系统会自动进行活体检测
+- 系统会自动进行活体检测（防止照片攻击）
 - 活体通过后点击"开始注册"
+- 人脸特征以二进制形式存储在本地数据库
 
-## 数据收集
+#### 4. 智能问答
 
-如需收集自己的训练数据：
+- 输入自然语言问题
+- 系统基于DeepSeek API回答
+- 支持查询考勤统计、系统使用帮助等
+
+## 数据集
+
+### 行为分类数据集
+
+包含8类课堂行为：
+- 0: 举手
+- 1: 玩手机
+- 2: 趴桌子
+- 3: 站立
+- 4: 看书
+- 5: 使用电脑
+- 6: 写字
+- 7: 听课
+
+### 数据划分
+
+| 数据集 | 原始图片 | 裁剪后样本 | 比例 |
+|--------|----------|------------|------|
+| 训练集 | 9932张 | 59174个 | 70% |
+| 验证集 | 2128张 | 12687个 | 15% |
+| 测试集 | 2129张 | 12665个 | 15% |
+
+### 训练模型
 
 ```bash
-# 录制教室场景视频
-python scripts/collect_training_data.py --source 0 --duration 300
-
-# 或使用视频文件
-python scripts/collect_training_data.py --source video.mp4 --duration 600
+python training/train_action_classifier.py
 ```
 
-### 数据标注格式
-
-行为分类训练数据格式：
-- 正常行为: 0
-- 传纸条: 1
-- 低头偷看: 2
-- 东张西望: 3
-
-数据目录结构：
-```
-data/training/
-├── normal/         # 正常行为样本
-├── pass_note/      # 传纸条样本
-├── look_down/      # 低头偷看样本
-└── look_around/    # 东张西望样本
-```
-
-每个样本是一个 `.npy` 文件，包含17个关键点的归一化坐标（34维向量）。
-
-## 模型说明
-
-### 人体检测模型
-
-- **模型**: YOLOv8n
-- **参数**: 3.2M
-- **输入**: 640x640
-- **输出**: 人体边界框
-
-### 姿态估计模型
-
-- **模型**: YOLOv8n-Pose
-- **参数**: 11MB
-- **输入**: 640x640
-- **输出**: 17个关键点（COCO格式）
-
-### 行为分类模型
-
-- **模型**: 轻量级MLP
-- **结构**: Input(34) -> FC(64) -> FC(32) -> Output(5)
-- **输入**: 归一化的关键点坐标
-- **输出**: 5类行为
-
-### 人脸识别模型
-
-- **模型**: dlib 128维特征编码
-- **特点**: 预训练模型，无需训练
-- **匹配阈值**: 0.6
-
-### 活体检测模型
-
-- **模型**: MiniFASNet
-- **输入**: 80x80人脸图像
-- **输出**: 真人/照片/屏幕
+训练参数：
+- 模型: ResNet18
+- 优化器: AdamW (lr=3e-4, weight_decay=1e-4)
+- 学习率调度: CosineAnnealingLR
+- 损失函数: 加权交叉熵损失
+- 数据增强: 随机裁剪、水平翻转、颜色抖动
+- 训练轮数: 20 epochs
+- 验证准确率: 93.71%
 
 ## 性能指标
 
-| 模型 | 推理时间(3050) | 显存占用 |
-|------|---------------|----------|
-| YOLOv8n检测 | ~8ms | ~500MB |
-| YOLOv8n-Pose | ~12ms | ~700MB |
-| 行为分类MLP | ~1ms | ~50MB |
+| 模块 | 推理时间 | 显存占用 |
+|------|----------|----------|
+| YOLOv11n检测 | ~8ms | ~500MB |
+| ResNet18分类 | ~2ms/框 | ~200MB |
 | 人脸识别 | ~15ms | ~300MB |
+| 活体检测 | ~5ms | ~100MB |
 
-**总体帧率**: 约20-25 FPS（开启所有功能）
+**总体帧率**: 约12 FPS（RTX 3050, 跳帧比例=1）
+
+## 优化策略
+
+- **跳帧处理**: 可配置跳帧比例（0-3），平衡帧率和精度
+- **CPU/GPU自适应**: 自动检测CUDA可用性，无缝切换
+- **时序平滑**: 最近5帧投票机制，减少单帧抖动
+- **抓拍冷却**: 60秒冷却时间，避免重复存证
+- **人脸缓存**: 同场次不重复签到，提高效率
+
+## 隐私保护
+
+- **本地部署**: 所有数据处理在本地完成，不上传云端
+- **特征加密**: 人脸特征以二进制BLOB形式存储，非明文
+- **无图像存储**: 只存储特征向量，不存储原始人脸图片
+- **符合规范**: 遵循《个人信息保护法》要求
 
 ## 常见问题
 
 ### 1. CUDA out of memory
 
-- 减小 `BATCH_SIZE` 到 4
-- 增大 `frame_skip` 到 3-5
-- 降低 `IMAGE_SIZE` 到 480
+- 增大 `skip_frames` 到 2-3
+- 降低 `batch_size` 到 4
+- 使用CPU模式运行
 
 ### 2. dlib安装失败
 
 ```bash
-# Windows需要Visual Studio Build Tools
-# 下载地址: https://visualstudio.microsoft.com/visual-cpp-build-tools/
-
+# Windows需要Visual C++ Build Tools
 # 或下载预编译wheel
-pip install dlib-19.24.2-cp39-cp39-win_amd64.whl
+pip install dlib-19.24.x-cp39-cp39-win_amd64.whl
 ```
 
 ### 3. 模型下载失败
 
-系统会自动从ultralytics下载YOLO模型。如需手动下载：
-
 ```python
 from ultralytics import YOLO
-model = YOLO('yolov8n.pt')  # 自动下载
+model = YOLO('yolo11n.pt')  # 自动下载
 ```
 
 ## 开发计划
 
-| 周次 | 任务 |
+| 阶段 | 任务 |
 |------|------|
-| 1-2 | 环境搭建、数据收集 |
-| 3 | 训练行为分类模型 |
-| 4 | 实现基础Pipeline |
-| 5 | 实现作弊检测应用 |
-| 6 | 实现人脸注册功能 |
-| 7 | 实现动态点名功能 |
-| 8 | GUI整合、联调测试 |
-| 9-10 | 性能优化、撰写论文 |
+| 1-2周 | 需求分析、文献调研 |
+| 3-4周 | 系统设计、数据采集 |
+| 5-8周 | 模型训练、系统开发 |
+| 9-12周 | 功能测试、性能优化 |
+| 13-16周 | 论文撰写、答辩准备 |
 
 ## 参考文献
 
-1. Redmon, J., et al. "You only look once: Unified, real-time object detection." CVPR 2016.
-2. Cao, Z., et al. "OpenPose: Realtime multi-person 2D pose estimation." TPAMI 2019.
-3. Kazemi, V., et al. "One millisecond face alignment with an ensemble of regression trees." CVPR 2014.
-4. Yu, Z., et al. "Searching central difference convolutional networks for face anti-spoofing." CVPR 2020.
+1. Ultralytics. YOLOv11 [EB/OL]. https://github.com/ultralytics/ultralytics
+2. He, K., et al. "Deep residual learning for image recognition." CVPR 2016.
+3. King, D. E. "Dlib-ml: A machine learning toolkit." JMLR 2009.
+4. Schroff, F., et al. "FaceNet: A unified embedding for face recognition." CVPR 2015.
 
 ## 许可
 
@@ -294,8 +274,10 @@ model = YOLO('yolov8n.pt')  # 自动下载
 
 ## 联系方式
 
-如有问题，请提交Issue或联系项目维护者。
+- 作者: 宋宇
+- 学校: 信息工程学院
+- 指导教师: 周振宇
 
 ---
 
-**毕业设计项目 | 适配RTX 3050 4GB显存**
+**本科毕业设计项目 | 2025年4月**
